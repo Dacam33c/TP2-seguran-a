@@ -1,31 +1,51 @@
-from flask import Flask, request, jsonify
-import hashlib
+from flask import Flask, request, jsonify, render_template_string
 import ssl
 
 app = Flask(__name__)
 
-def calcular_hash(mensagem):
-    return hashlib.sha256(mensagem.encode()).hexdigest()
+# ultima mensagem recebida
+ultima_mensagem = "N mandaram nada ainda n. envia uma mensagem pelo cliente e recarrega a pagina"
 
-@app.route('/mensagem', methods=['POST'])
+
+@app.route('/mensagem', methods=['POST', 'GET'])
 def receber_mensagem():
-    try:
-        dados = request.json  # Obtém os dados JSON da requisição
-        mensagem = dados.get("request", "")
-        hash_recebido = dados.get("hash", "")
+    global ultima_mensagem  # pra modificar a mensagem q vai aparecer na tela
 
-        # Recalcula o hash para verificar a integridade
-        hash_calculado = calcular_hash(mensagem)
+    #se usarmos o metodo post
+    if request.method == 'POST':
+        #tenta ler os dados da forma json
+        try:
+            dados = request.json
+            #pega a mensagem na chave "request"
+            mensagem = dados.get("request", "")
+            #atualiza mensagem
+            ultima_mensagem = mensagem
+            
+            return jsonify({"retorno": f"Mensagem: {mensagem}"})
+        
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+        
 
-        if hash_calculado != hash_recebido:
-            return jsonify({"error": "Hash errado n pode n"}), 400
-
-        return jsonify({"retorno": "Deu certo :D"})
-    
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    # html para mostrar a mensagem
+    html = f"""
+    <html>
+        <head>
+            <title>Última Mensagem</title>
+        </head>
+        <body>
+            <h1>Última Mensagem Recebida:</h1>
+            <p>{ultima_mensagem}</p>
+        </body>
+    </html>
+    """
+    return render_template_string(html)
 
 if __name__ == '__main__':
-    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-    context.load_cert_chain('cert.pem', 'key.pem')  # Certificados SSL
-    app.run(host='0.0.0.0', port=4900, ssl_context=context, debug=True)
+    # certificado e chave privada que estão salvos na pasta do projeto
+    cert_path = "cert.pem"
+    key_path = "key.pem"
+
+    #inicia o servidor Flask com https, com um contexto ssl
+    #ou seja inclui certificado, validação e chaves de criptografia
+    app.run(host="0.0.0.0", port=4900, ssl_context=(cert_path, key_path))
