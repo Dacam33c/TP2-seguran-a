@@ -1,14 +1,23 @@
 import socket
 import json
 import time
+import ssl
 
 
 class Servidor:
     def __init__(self, endereco_servidor='localhost', porta_servidor=4900, max_conexoes=5):
 
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+        contexto_ssl = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        contexto_ssl.load_cert_chain(certfile="cert.pem", keyfile="key.pem")
+
         self.socket.bind((endereco_servidor, porta_servidor))
         self.socket.listen(max_conexoes)
+        
+        self.socket = contexto_ssl.wrap_socket(self.socket, server_side=True)
+        
+        print(f"Server ta em: {endereco_servidor}:{porta_servidor}")
         self.loopServidor()
 
     def loopServidor(self):
@@ -57,7 +66,7 @@ class Servidor:
         print(resp)
         return json.dumps(resp) 
 
-
+print('servidor')
 server = Servidor()
 print("SERVIDOR ENCERRADO")
 del server 

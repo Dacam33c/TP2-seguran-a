@@ -1,41 +1,49 @@
 import socket
 import time
 import json
+import ssl
 
-def make_rqst():
-    socketCliente = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    socketCliente.connect(('localhost', 4900))
+def make_rqst(texto):
+    contexto_ssl = ssl.create_default_context()
+    contexto_ssl.check_hostname = False  # Permite certificados autossinados
+    contexto_ssl.verify_mode = ssl.CERT_NONE  # Desativa a verificação SSL (não recomendado para produção)
 
-    rqst = "teste rqst"
-    print(rqst)
+    with socket.create_connection(('localhost', 4900)) as socketCliente:
+        with contexto_ssl.wrap_socket(socketCliente, server_hostname='localhost') as ssock:
+            rqst = {"request": texto}  # Ajuste para JSON válido
+            print(f"Enviando: {rqst}")
 
-    rqstBytes = json.dumps(rqst).encode("utf-8")
+            rqstBytes = json.dumps(rqst).encode("utf-8")
 
-    socketCliente.settimeout(3)
-    tentativas = 0
-    resp = None
+            ssock.settimeout(3)
+            tentativas = 0
+            resp = None
 
-    while (tentativas < 3):
-        tentativas += 1
-        try:
-            socketCliente.send(rqstBytes) 
-            respBytes = socketCliente.recv(256).decode("utf-8")
-            resp = json.loads(respBytes)
-            if("retorno" in resp and resp["retorno"] is not None):
-                break
-        except TimeoutError:
-            pass
-        time.sleep(1)
+            while tentativas < 3:
+                tentativas += 1
+                try:
+                    ssock.send(rqstBytes)
+                    respBytes = ssock.recv(256).decode("utf-8")
+                    resp = json.loads(respBytes)
+                    if "retorno" in resp and resp["retorno"] is not None:
+                        break
+                except TimeoutError:
+                    print("Tentativa de conexão falhou, tentando novamente...")
+                time.sleep(1)
 
-        socketCliente.close()
-    if (resp is not None):
-        return resp["retorno"]
-    else:
-        return False
-
+            if resp is not None:
+                return resp
+            else:
+                return False
 
 def main():
-    print(make_rqst())
+    print("Cliente")
+
+    entrada = input("Digite uma mensagem para o servidor: ")
+    
+    resposta = make_rqst(entrada)
+    
+    print(f"Resposta do servidor: {resposta}")
 
 if __name__ == "__main__":
     main()
